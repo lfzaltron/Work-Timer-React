@@ -1,17 +1,20 @@
-import { createContext, ReactNode, useState } from 'react'
+import {
+  createContext,
+  ReactNode,
+  useEffect,
+  useReducer,
+  useState,
+} from 'react'
+import {
+  addNewCycleAction,
+  finishCurrentCycleAction,
+  interruptCurrentCycleAction,
+} from '../reducers/Cycles/actrions'
+import { Cycle, cyclesReducer } from '../reducers/Cycles/reducer'
 
 interface CreateCycleData {
   task: string
   minutesAmount: number
-}
-
-interface Cycle {
-  id: string
-  task: string
-  minutesAmount: number
-  startDate: Date
-  interruptedDate?: Date
-  finishedDate?: Date
 }
 
 interface CyclesContextData {
@@ -25,17 +28,69 @@ interface CyclesContextData {
   createCycle: (data: CreateCycleData) => void
 }
 
-export const CyclesContext = createContext({} as CyclesContextData)
+interface CyclesState_1_0_0 {
+  cycles: {
+    id: string
+    task: string
+    minutesAmount: number
+    startDate: string
+    interruptedDate?: string
+    finishedDate?: string
+  }[]
+  activeCycleId: string | null
+}
 
 interface CyclesContextProviderProps {
   children: ReactNode
 }
 
+export const CyclesContext = createContext({} as CyclesContextData)
+
 export function CyclesContextProvider({
   children,
 }: CyclesContextProviderProps) {
-  const [cycles, setCycles] = useState<Cycle[]>([])
-  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
+  const [cyclesState, dispatch] = useReducer(
+    cyclesReducer,
+    {
+      cycles: [],
+      activeCycleId: null,
+    },
+    () => {
+      const storagedData = localStorage.getItem(
+        'WorkTimerApp:CyclesState:1.0.0',
+      )
+      if (storagedData) {
+        const parsedData = JSON.parse(storagedData) as CyclesState_1_0_0
+        const parsedCycles = parsedData.cycles.map((cycle) => {
+          return {
+            ...cycle,
+            startDate: new Date(cycle.startDate),
+            finishedDate: cycle.finishedDate
+              ? new Date(cycle.finishedDate)
+              : undefined,
+            interruptedDate: cycle.interruptedDate
+              ? new Date(cycle.interruptedDate)
+              : undefined,
+          }
+        })
+        return { ...parsedData, cycles: parsedCycles }
+      }
+      return {
+        cycles: [],
+        activeCycleId: null,
+      }
+    },
+  )
+
+  useEffect(() => {
+    localStorage.setItem(
+      'WorkTimerApp:CyclesState:1.0.0',
+      JSON.stringify(cyclesState),
+    )
+  }, [cyclesState])
+
+  const { cycles, activeCycleId } = cyclesState
+
   const [amountSecondsPassed, setAmountSecondsPassed] = useState(0)
 
   const activeCycle = cycles.find((cycle) => cycle.id === activeCycleId)
@@ -45,13 +100,7 @@ export function CyclesContextProvider({
   }
 
   function finishCurrentCycle() {
-    setCycles((state) =>
-      state.map((cycle) =>
-        cycle.id === activeCycleId
-          ? { ...cycle, finishedDate: new Date() }
-          : cycle,
-      ),
-    )
+    dispatch(finishCurrentCycleAction())
   }
 
   function createCycle(data: CreateCycleData) {
@@ -62,20 +111,12 @@ export function CyclesContextProvider({
       startDate: new Date(),
     }
 
-    setCycles((state) => [...state, newCycle])
-    setActiveCycleId(newCycle.id)
+    dispatch(addNewCycleAction(newCycle))
     setAmountSecondsPassed(0)
   }
 
   function interruptCurrentCycle() {
-    setCycles((state) =>
-      state.map((cycle) =>
-        cycle.id === activeCycleId
-          ? { ...cycle, interruptedDate: new Date() }
-          : cycle,
-      ),
-    )
-    setActiveCycleId(null)
+    dispatch(interruptCurrentCycleAction())
   }
 
   return (
