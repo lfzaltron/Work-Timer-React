@@ -1,6 +1,6 @@
 # Timer App
 
-Just another Timer App.
+Just another Timer App. [Live here!](https://timer-react-lyart.vercel.app/)
 
 ## Some techs used in this project
 
